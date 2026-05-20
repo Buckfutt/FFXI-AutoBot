@@ -1,0 +1,30 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <modules>
+            <casting>true</casting>
+            <combat>true</combat>
+            <follow>true</follow>
+            <general>true</general>
+            <pulling>false</pulling>
+            <superwarp>true</superwarp>
+            <targeting>false</targeting>
+            <trusts>true</trusts>
+        </modules>
+        <pull_method>
+            <action>flash</action>
+            <type>spell</type>
+        </pull_method>
+        <target_list>blanched mandragora</target_list>
+        <whitelist>coder</whitelist>
+    </global>
+    <coder>
+        <modules>
+            <follow>false</follow>
+            <pulling>true</pulling>
+            <targeting>true</targeting>
+            <trusts>false</trusts>
+        </modules>
+        <target_list>apex crab</target_list>
+    </coder>
+</settings>
