@@ -19,15 +19,15 @@ TODO:
 ------------------
 -- Modules
 ------------------
-general
-follow
-targeting
-pulling
-combat
-casting
-trusts -- NOT COMPLETE
-superwarp
-interaction
+1. general
+2. follow
+3. targeting
+4. pulling
+5. combat
+6. casting
+7. superwarp
+8. interaction
+9. trusts -- NOT COMPLETE
 
 ---------------------------------------
 -- Addon Commands [ab | autobot | bot]
