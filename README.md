@@ -12,9 +12,9 @@ This relies on the SuperWarp addon for the Warp Commands.
 
 TODO:
 -----
--Add Job Specific Module handling.
--Finish writing Trusts Module.
--Fix bug regarding targeting (unsure of the cause. sometimes it will hang between targets but does appear to resume after a bit of time)
+1. Add Job Specific Module handling.
+2. Finish writing Trusts Module.
+3. Fix bug regarding targeting (unsure of the cause. sometimes it will hang between targets but does appear to resume after a bit of time)
 
 ------------------
 -- Modules
