@@ -4,6 +4,8 @@ An automation and multibox control framework for Windower4 (Final Fantasy XI) wr
 
 I got sick and tired of using old, jank tools like EasyFarm that worked only when they wanted to, so I decided to write a usable automation kit via Lua as an addon for Windower4. It is incredibly handy for controlling alt accounts from your main character. 
 
+Please feel free to submit additions, fixes, or changes!
+
 > [!WARNING]
 > There are unfinished modules and some parts may bug out at times, but the framework is highly capable.
 
