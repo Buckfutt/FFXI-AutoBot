@@ -1,192 +1,167 @@
 # FFXI-AutoBot
-Automation &amp; Control Framework for Windower4 (FFXI)
 
-I got sick and tired of using old jank tools like EasyFarm that worked when they wanted to,
-so I decided to see if I could write a useable automation kit via LUA as an addon for Windower4.
-There are unfinished modules, and some parts may bug out at times, but it's very capable.
-Very handly for controlling alt accounts from your main.
+An automation and multibox control framework for Windower4 (Final Fantasy XI) written in Lua.
 
-NOTES:
------
-This relies on the SuperWarp addon for the Warp Commands.
+I got sick and tired of using old, jank tools like EasyFarm that worked only when they wanted to, so I decided to write a usable automation kit via Lua as an addon for Windower4. It is incredibly handy for controlling alt accounts from your main character. 
 
-TODO:
------
-1. Add Job Specific Module handling.
-2. Finish writing Trusts Module.
-3. Fix bug regarding targeting (unsure of the cause. sometimes it will hang between targets but does appear to resume after a bit of time)
+> [!WARNING]
+> There are unfinished modules and some parts may bug out at times, but the framework is highly capable.
 
-------------------
--- Modules
-------------------
-1. general
-2. follow
-3. targeting
-4. pulling
-5. combat
-6. casting
-7. superwarp
-8. interaction
-9. trusts -- NOT COMPLETE
+---
 
----------------------------------------
--- Addon Commands [ab | autobot | bot]
----------------------------------------
-//autobot help					 - (Displays Help Menu)
+## 📌 Prerequisites & Notes
+* This addon **relies heavily** on the `SuperWarp` addon for all warp-related commands. Make sure you have it installed.
 
------- ADDON ------
-//autobot set                    - (Addon) toggle a module")
+## 🛠️ To-Do List
+- [ ] Add Job-Specific Module handling.
+- [ ] Finish writing the Trusts Module.
+- [ ] Fix target-hanging bug (unsure of the cause; sometimes hangs between targets but appears to resume after a bit of time).
 
------- GENERAL ------
-//autobot rest                   - (General) Rest command")
-//autobot heal                   - (General) Heal command")
-//autobot join                   - (General) Join command")
-//autobot leave                  - (General) Leave command")
-//autobot disband                - (General) Disband command")
-//autobot passleader <name>      - (General) Transfer leadership")
-//autobot invite <name>          - (General) Invite a party member")
-//autobot warpring               - (General) Equips & Uses Warp Ring")
-//autobot trade <name>           - (General) Opens a Trade Window")
-//autobot accepttrade            - (General) Accepts the Trade")
-//autobot mount  <name>          - (General) Mounts Specified Mount")
-//autobot mountup                - (General) Mounts Default (Crawler)")
+---
 
------- FOLLOW ------
-//autobot followme				 - (Follow) Start following the player")
-//autobot follow <target>        - (Follow) Start following specified player")
-//autobot stopfollow             - (Follow) Stop following")
-
------- SUPERWARP ------
-//autobot warp/warpto <warp type> <warp location> [index] - (Superwarp) Warp command")
-
------- TARGETING ------
-//autobot target add <monster>   - (Targeting) Add a monster to the target list")
-//autobot target remove <monster> - (Targeting) Remove a monster from the target list")
-//autobot target list            - (Targeting) Display current targets")
-
------- PULLING ------
-//autobot pull start             - (Pulling) Start pulling targets")
-//autobot pull stop              - (Pulling) Stop pulling targets")
-//autobot pull method [spell/ranged/ability] \"action_name\"  - (Pulling) Set the pull method")
-
------- COMBAT ------
-//autobot attack                 - (Combat) Execute an attack")
-//autobot assist [target]        - (Combat) Assist (defaults to player)")
-//autobot disengage              - (Combat) Disengage from combat")
-//autobot turn                   - (Combat) Execute a turn command")
-
------- CASTING ------
-//autobot cast \"spell\" [target]  - (Casting) Cast a spell")
-//autobot stopcasting            - (Casting) Stop casting")
-
------- SETTINGS ------
-//autobot settings               - Show current module states")
-//autobot toggle <module>        - Toggle a module (general, follow, combat, casting, superwarp)")
-//autobot set <module>           - Toggle a module (if on, turn it off; if off, turn it on)")
-//autobot whitelist add <user>   - Add a user to the whitelist")
-//autobot whitelist remove <user>- Remove a user from the whitelist")
-//autobot whitelist list         - List whitelisted users")
-//autobot help                   - Displays this help message")
+## 🧩 Included Modules
 
 
+| Module Name | Status | Description |
+| :--- | :--- | :--- |
+| `general` |  Ready | Core system and basic character movements |
+| `follow` |  Ready | Player positioning and trailing |
+| `targeting` |  Ready | Mob selection mechanics |
+| `pulling` |  Ready | Pulling automation sequences |
+| `combat` |  Ready | Engagement and battle mechanics |
+| `casting` |  Ready | Spell rotation handling |
+| `superwarp` |  Ready | Map and zone navigation integration |
+| `interaction`|  Ready | Direct NPC and trade mechanics |
+| `trusts` | ⚠️ *WIP* | Trust management system |
 
--------------------------------------------------------
--- Chat Commands: Can be issued via Tell or Party Chat
--------------------------------------------------------
+---
 
------------------
--- Key Presses
------------------
-!key [keypress]
-	-Enter
-	-Up		(arrow)
-	-Down	(arrow
-	-Left	(arrow)
-	-Right	(arrow)
-	-Tab
-	-STab	(Shift + Tab)8
-	-F1		(Target Self)
-	-F8		(Target NPC)
-	-Esc
+## 💻 Addon Commands
 
-------------------
--- General
-------------------
-!command <command>		(Issues direct commands. Ex: !command //lua load superwarp)
-!warpring				(Uses Warp Ring) [may require command to equip prior to use]
+**Base Commands:** `//ab` | `//autobot` | `//bot`
 
-------------------
--- Party Commands
-------------------
-!invite <player>		(Invites specified player. If no player specified invite command issuer)
-!join					(Accepts a Party Invite)
-!leave					(Leaves the Party)
-!passleader				(Passes party leader to command issuer)
-!disband				(Disbands the party)
+### Core Addon Management
+* `//autobot help` - Displays the help menu.
+* `//autobot set` - Toggle an addon module.
 
-------------------
--- Mount Control
-------------------
-!mount / !mountup	(Mounts)
-!dismount			(Dismounts)
+### 👥 General & Party
+* `//autobot rest` - Rest character.
+* `//autobot heal` - Heal character.
+* `//autobot join` - Join party.
+* `//autobot leave` - Leave party.
+* `//autobot disband` - Disband the party.
+* `//autobot passleader <name>` - Transfer party leadership.
+* `//autobot invite <name>` - Invite a player to the party.
+* `//autobot warpring` - Equips and uses your Warp Ring.
+* `//autobot trade <name>` - Opens a trade window with specified player.
+* `//autobot accepttrade` - Accepts the active trade.
+* `//autobot mount <name>` - Mounts the specified mount.
+* `//autobot mountup` - Mounts the default mount (Crawler).
 
-------------------
--- Following
-------------------
-!follow <target>	(Follows Specified Player)
-!followme			(Follows Command Issuer)
-!stopfollow			(Stops following)
-!setfollowdistance  (!!!Not implemented yet!!!)
+### 🏃 Follow
+* `//autobot followme` - Start following the host player.
+* `//autobot follow <target>` - Start following a specific player.
+* `//autobot stopfollow` - Stop following.
 
-------------------
--- Trading
-------------------
-!trademe			(Initiates trade w/ command issuer)
-!trade <player>		(Trades specified player, if no player is issued then trade command issuer)
-!accepttrade		(Accepts the Trade Window)
-!canceltrade		(Cancels the Trade Window)
-!tradeallgil		(Trades all gil when Trade Window is open)
-!clear				(Clears Trade Window)
+### 🌐 SuperWarp
+* `//autobot warp/warpto <warp type> <warp location> [index]` - Execute a warp command.
 
-------------------
--- Combat
-------------------
-!assist					(assists command issuer)
-!attack					(attacks target)
-!disengage				(disengages target if engaged)
-!turn					(turns character around 180)
-!cast <spell> [target]	(If no target specified, cast on current target, player names can be specified. Ex: [!cast "Warp II" <me>])
-!stopcasting			(Cancels spellcasting)
+### 🎯 Targeting
+* `//autobot target add <monster>` - Add a monster to the target list.
+* `//autobot target remove <monster>` - Remove a monster from the target list.
+* `//autobot target list` - Display current targets.
 
------------------
--- Targeting
------------------
-!target <add/remove> <target>	(Adds, Removes targets)
-!target list					(Outputs current TargetList)
-!target <start/stop>			(Starts or Stops Auto-Targing of MobList)
-!tnpc <target>					(Targets specified NPC) [May be broken]
+### 🏹 Pulling
+* `//autobot pull start` - Start pulling targets.
+* `//autobot pull stop` - Stop pulling targets.
+* `//autobot pull method [spell/ranged/ability] "action_name"` - Set the pull method.
 
------------------
--- Pulling
------------------
-!pull <start/stop>
-!pull method <spell/ranged/ability> [spell/ability]		(Sets the pulling method)
+### ⚔️ Combat
+* `//autobot attack` - Execute an attack command.
+* `//autobot assist [target]` - Assist a target (defaults to player).
+* `//autobot disengage` - Disengage from combat.
+* `//autobot turn` - Spin character around 180 degrees.
 
---------------------------
--- Trusts (FIXME - Work in Progress)
---------------------------
-!trust <command>
-	-save
-	-list
-	-summon <name>
-	-release <name>
-	-monitor <hp/mp/both> <threshold>
-	-cooldown
+###  Magic Casting
+* `//autobot cast "spell" [target]` - Cast a specific spell.
+* `//autobot stopcasting` - Force stop current spellcasting.
 
---------------------------------
--- Warping (Utilizes SuperWarp)
---------------------------------
-!warp/!warpto <WarpType> <Zone> <Index#>
+###⚙️ Configuration & Whitelist
+* `//autobot settings` - Show current module states.
+* `//autobot toggle <module>` - Toggle a specific module on/off.
+* `//autobot whitelist add <user>` - Add a user to the allowed list.
+* `//autobot whitelist remove <user>` - Remove a user from the allowed list.
+* `//autobot whitelist list` - List all whitelisted users.
 
-Example: !warpto hp (Southern San d'Oria) 1
-this will warp to the West Ron Gate @ Southern San d'Oria
+---
+
+## 💬 Remote Chat Commands
+These commands can be whispered to the character via `/tell` or called out in `/party` chat to trigger actions on your alt accounts.
+
+### ⌨️ Simulated Key Presses
+Usage: `!key [keypress]`
+* `Enter` | `Up` | `Down` | `Left` | `Right` | `Tab`
+* `STab` (Shift + Tab)
+* `F1` (Target Self) | `F8` (Target NPC) | `Esc`
+
+### 📦 General & Commands
+* `!command <command>` - Issue a direct text command (e.g., `!command //lua load superwarp`).
+* `!warpring` - Force use of Warp Ring *(may require manual equipment check first)*.
+
+### 🤝 Party Management
+* `!invite <player>` - Invites target player. Defaults to the person issuing the chat command if no name is given.
+* `!join` - Accepts an incoming party invitation.
+* `!leave` - Leaves current party.
+* `!passleader` - Passes party leadership to the person issuing the chat command.
+* `!disband` - Instantly disbands the party.
+
+### 🚲 Mount Control
+* `!mount` or `!mountup` - Mounts up.
+* `!dismount` - Dismounts.
+
+### 🏃 Navigation / Following
+* `!follow <target>` - Follows the specified player name.
+* `!followme` - Follows the person issuing the chat command.
+* `!stopfollow` - Halts all follow movements.
+* `!setfollowdistance` - *Not implemented yet.*
+
+### 🪙 Trading
+* `!trademe` - Initiates a trade window with the person issuing the chat command.
+* `!trade <player>` - Opens trade with target player. Defaults to command issuer if blank.
+* `!accepttrade` - Confirms and accepts the active trade window.
+* `!canceltrade` - Closes out of the active trade window.
+* `!tradeallgil` - Automates putting all inventory gil into the active trade window.
+* `!clear` - Clears items from the open trade window.
+
+### ⚔️ Battle & Magic
+* `!assist` - Assists the person issuing the chat command.
+* `!attack` - Attacks the current target.
+* `!disengage` - Disengages weapon from target.
+* `!turn` - Turns the character around 180 degrees.
+* `!cast <spell> [target]` - Casts a spell. Defaults to current target if blank (e.g., `!cast "Warp II" <me>`).
+* `!stopcasting` - Interrupts current cast.
+
+### 🎯 Automated Targeting
+* `!target <add/remove> <target>` - Adds or removes monsters from the automation loop.
+* `!target list` - Prints out the current active `TargetList`.
+* `!target <start/stop>` - Starts or stops the auto-targeting routine for your `MobList`.
+* `!tnpc <target>` - Target a specific NPC *(Warning: May be broken)*.
+
+### 🏹 Remote Pulling
+* `!pull <start/stop>` - Toggles pulling state.
+* `!pull method <spell/ranged/ability] [spell/ability]` - Configures how mobs are pulled.
+
+### 🎭 Trusts (Work In Progress)
+Usage: `!trust <command>`
+* `save` | `list` | `cooldown`
+* `summon <name>` | `release <name>`
+* `monitor <hp/mp/both> <threshold>`
+
+### 🌀 Warping (Requires SuperWarp)
+Usage: `!warp/!warpto <WarpType> <Zone> <Index#>`
+
+**Example:**
+```text
+!warpto hp (Southern San d'Oria) 1
+```
+*Result: Automatically warps the character to the West Ronfaure Gate at Home Point #1 in Southern San d'Oria.*
