@@ -82,7 +82,7 @@ I got sick and tired of using old, jank tools like EasyFarm that worked only whe
 * `//autobot disengage` - Disengage from combat.
 * `//autobot turn` - Spin character around 180 degrees.
 
-###  Magic Casting
+### 🔥 Magic Casting
 * `//autobot cast "spell" [target]` - Cast a specific spell.
 * `//autobot stopcasting` - Force stop current spellcasting.
 
