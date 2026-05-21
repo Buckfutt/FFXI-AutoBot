@@ -86,7 +86,7 @@ I got sick and tired of using old, jank tools like EasyFarm that worked only whe
 * `//autobot cast "spell" [target]` - Cast a specific spell.
 * `//autobot stopcasting` - Force stop current spellcasting.
 
-###⚙️ Configuration & Whitelist
+### ⚙️ Configuration & Whitelist
 * `//autobot settings` - Show current module states.
 * `//autobot toggle <module>` - Toggle a specific module on/off.
 * `//autobot whitelist add <user>` - Add a user to the allowed list.
