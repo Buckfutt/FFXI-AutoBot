@@ -72,6 +72,8 @@ Please feel free to submit additions, fixes, or changes!
 * `//autobot target add <monster>` - Add a monster to the target list.
 * `//autobot target remove <monster>` - Remove a monster from the target list.
 * `//autobot target list` - Display current targets.
+* `//autobot target start` - Starts Auto-Targeting
+* `//autobot target stop` - Stops Auto-Targeting
 
 ### 🏹 Pulling
 * `//autobot pull start` - Start pulling targets.
