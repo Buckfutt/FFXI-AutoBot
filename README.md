@@ -17,7 +17,6 @@ Please feel free to submit additions, fixes, or changes!
 ## 🛠️ To-Do List
 - [ ] Add Job-Specific Module handling.
 - [ ] Finish writing the Trusts Module.
-- [ ] Fix target-hanging bug (unsure of the cause; sometimes hangs between targets but appears to resume after a bit of time).
 
 ---
 
