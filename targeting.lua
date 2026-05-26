@@ -4,13 +4,12 @@ local packets = require('packets')
 local targeting_event_id = nil         -- ID returned by windower.register_event
 local last_locked_target = nil         -- Stores the last locked target ID
 local last_target_change_time = 0      -- Timestamp of the last target change
-local retarget_delay = 5              -- Seconds to wait before switching targets if a new mob gets closer
+local retarget_delay = 5               -- Seconds to wait before switching targets if a new mob gets closer
 local debug = false                    -- Set true for extra debug output
 
 ----------------------------------------------------------------------
--- Facing Routine Functions (adapted from your autotarget addon)
+-- Facing Routine Functions
 ----------------------------------------------------------------------
-
 -- Global variable for rotation updates.
 PlayerH = 0
 
@@ -22,7 +21,41 @@ windower.register_event('outgoing chunk', function(id, data)
     end
 end)
 
--- Compute the heading from the player toward the given coordinates.
+----------------------------------------------------------------------
+-- Detect "Cannot attack target." (Message 8)
+----------------------------------------------------------------------
+windower.register_event('incoming chunk', function(id, data)
+    if id == 0x029 then
+        local msg = packets.parse('incoming', data)
+
+        -- Message 8 = "You cannot attack that target."
+        if msg['Message'] == 8 then
+            local failed_target_id = msg['Target']
+
+            local current = windower.ffxi.get_mob_by_target('t')
+            if current and current.id == failed_target_id then
+				if debug then
+					windower.add_to_chat(207, "[Targeting DEBUG] Attack failed. Retargeting...")
+				end
+
+                -- Clear locked target so find_target() picks a new one
+                last_locked_target = nil
+                last_target_change_time = 0
+
+                -- Force immediate retarget attempt
+                targeting.find_target()
+
+                -- Immediately attempt to attack the new target
+                windower.send_command("input /attack <t>")
+                attempt_attack_until_engaged()
+            end
+        end
+    end
+end)
+
+----------------------------------------------------------------------
+-- Facing Code
+----------------------------------------------------------------------
 function Heading_To(X, Y)
     local player = windower.ffxi.get_mob_by_id(windower.ffxi.get_player().id)
     if not player or not (player.x and player.y) then return nil end
@@ -32,7 +65,6 @@ function Heading_To(X, Y)
     return H - 1.5708
 end
 
--- Turn the player toward the current target.
 function Turn_To_Target()
     local target = windower.ffxi.get_mob_by_target('t')
     if not (target and target.x and target.y) then return end
@@ -43,6 +75,7 @@ function Turn_To_Target()
     local diff = math.abs(PlayerH - math.deg(desired_heading))
     if diff > 10 then
         windower.ffxi.turn(desired_heading)
+		
         if debug then
             windower.add_to_chat(207, string.format("Turning: desired_heading = %.2f° (diff = %.2f°)", math.deg(desired_heading), diff))
         end
@@ -51,26 +84,23 @@ function Turn_To_Target()
     end
 end
 
--- Check target distance and adjust facing if needed.
 function Check_Distance()
     local target = windower.ffxi.get_mob_by_target('t')
     if not target then return end
     local distance = math.sqrt(target.distance)
     if distance > 3 then
         Turn_To_Target()
-        windower.ffxi.run(false) -- Make sure you’re not running.
+        windower.ffxi.run(false)
     else
         windower.ffxi.run(false)
     end
 end
 
--- Facing loop control.
 local facing_running = false
 
--- Continuously call Turn_To_Target and Check_Distance while the player is engaged.
 local function continuously_face_target()
     local player = windower.ffxi.get_player()
-    if player and player.status == 1 then  -- engaged
+    if player and player.status == 1 then
         Turn_To_Target()
         Check_Distance()
     end
@@ -79,69 +109,75 @@ local function continuously_face_target()
     end
 end
 
--- Start the facing loop.
 function targeting.start_facing()
     if not facing_running then
         facing_running = true
         continuously_face_target()
+		
         if debug then
             windower.add_to_chat(207, "[Targeting DEBUG] Facing loop started.")
         end
     end
 end
 
--- Stop the facing loop.
 function targeting.stop_facing()
     facing_running = false
+	
     if debug then
         windower.add_to_chat(207, "[Targeting DEBUG] Facing loop stopped.")
     end
 end
 
 ----------------------------------------------------------------------
--- Attack Routine Functions
-----------------------------------------------------------------------
--- NOTES:
--- There appears to be a bug here, we need to check to make sure
--- we're not receiving the "Cannot attack Target." Packet, and if
--- we are, then we need to attempt to target a different MobID
---
--- Or is it trying to re-target the dead mob?
--- Maybe check if to see if target ID = previous target ID
--- if so, then find new target ID
+-- Attack Routine Functions (added 5 attack attempts before retarget)
 ----------------------------------------------------------------------
 
--- Repeatedly issues "/attack <t>" until player becomes engaged.
+local attack_attempts = 0
+local max_attempts = 5
+
 local function attempt_attack_until_engaged()
     local player = windower.ffxi.get_player()
     if not player then return end
-    if player.status ~= 1 then
-         windower.send_command("input /attack <t>")
-         coroutine.schedule(attempt_attack_until_engaged, 1)
+
+    if player.status == 1 then
+        attack_attempts = 0
+        return
     end
+
+    attack_attempts = attack_attempts + 1
+    if attack_attempts > max_attempts then
+	
+		if debug then
+			windower.add_to_chat(207, "[Targeting DEBUG] Attack failed too many times. Retargeting...")
+		end
+		
+        last_locked_target = nil
+        return
+    end
+
+    windower.send_command("input /attack <t>")
+    coroutine.schedule(attempt_attack_until_engaged, 1)
 end
 
 ----------------------------------------------------------------------
 -- Targeting Functions
 ----------------------------------------------------------------------
 
--- Provide settings (must include target_list and modules table).
 function targeting.set_settings(cfg)
     settings_ref = cfg
     if not settings_ref.target_list then
-        settings_ref.target_list = L{}  -- Initialize if missing.
+        settings_ref.target_list = L{}
     end
+	
     if debug then
         windower.add_to_chat(207, "[Targeting DEBUG] Settings loaded.")
     end
 end
 
--- Allow packet reference updates.
 function targeting.set_packets(pkt)
     packets = pkt
 end
 
--- Find the nearest valid target within 20 units.
 function targeting.find_nearest_target()
     if not settings_ref or not settings_ref.target_list or #settings_ref.target_list == 0 then
         if debug then
@@ -179,12 +215,10 @@ function targeting.find_nearest_target()
     return closest_target and closest_target.id or nil
 end
 
--- Main targeting function called on each prerender event.
 function targeting.find_target()
     local player = windower.ffxi.get_player()
     if not player then return end
 
-    -- Do not change target while engaged.
     if player.status == 1 then
         if debug then
             windower.add_to_chat(207, "[Targeting DEBUG] Player is engaged; not retargeting.")
@@ -192,40 +226,22 @@ function targeting.find_target()
         return
     end
 
-    if debug then
-        windower.add_to_chat(207, "[Targeting DEBUG] find_target() called.")
-    end
-
-    if not settings_ref then
-        if debug then windower.add_to_chat(207, "[Targeting DEBUG] settings_ref is nil!") end
-        return
-    end
-    if not settings_ref.modules or not settings_ref.modules.targeting then
-        if debug then windower.add_to_chat(207, "[Targeting DEBUG] Targeting module is disabled in settings!") end
-        return
-    end
+    if not settings_ref then return end
+    if not settings_ref.modules or not settings_ref.modules.targeting then return end
 
     local new_target_id = targeting.find_nearest_target()
 
     if new_target_id then
         local current_target = windower.ffxi.get_mob_by_target('t')
-        -- If already targeting this mob, update timestamp and do nothing.
+
         if current_target and current_target.id == new_target_id then
-            if debug then
-                windower.add_to_chat(207, "[Targeting DEBUG] Already targeting this mob!")
-            end
             last_locked_target = new_target_id
             last_target_change_time = os.time()
             return
         end
 
         local now = os.time()
-        if not last_target_change_time then last_target_change_time = 0 end
-        -- Enforce a delay before retargeting if a new mob appears too quickly.
         if last_locked_target and new_target_id ~= last_locked_target and (now - last_target_change_time) < retarget_delay then
-            if debug then
-                windower.add_to_chat(207, "[Targeting DEBUG] Retarget delay active. Not switching targets yet.")
-            end
             return
         end
 
@@ -239,17 +255,16 @@ function targeting.find_target()
                     ['Player Index'] = player.index,
                 }))
                 local hex_id = string.format("0x%X", new_target_id)
-                windower.add_to_chat(207, "[Targeting] Locked onto target: " .. hex_id)
+				
+				if debug then
+					windower.add_to_chat(207, "[Targeting] Locked onto target: " .. hex_id)
+				end
+				
                 windower.send_command("input /attack <t>")
                 attempt_attack_until_engaged()
             end, 0.2)
-        else
-            if debug then
-                windower.add_to_chat(207, "[Targeting DEBUG] Target remains unchanged.")
-            end
         end
     else
-        if debug then windower.add_to_chat(207, "[Targeting DEBUG] No valid targets found.") end
         last_locked_target = nil
     end
 end
@@ -258,7 +273,6 @@ end
 -- Module Toggle Functions
 ----------------------------------------------------------------------
 
--- Start the targeting module; register the prerender event and begin the facing loop.
 function targeting.start()
     if targeting_event_id then
         windower.add_to_chat(207, "[Targeting] Already started!")
@@ -269,7 +283,6 @@ function targeting.start()
     targeting.start_facing()
 end
 
--- Stop the targeting module; unregister the event and stop facing.
 function targeting.stop()
     if targeting_event_id then
         windower.unregister_event(targeting_event_id)
