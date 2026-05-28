@@ -15,8 +15,8 @@ Please feel free to submit additions, fixes, or changes!
 * This addon **relies heavily** on the `SuperWarp` addon for all warp-related commands. Make sure you have it installed.
 
 ## 🛠️ To-Do List
-- [ ] Add Job-Specific Module handling.
 - [ ] Finish writing the Trusts Module.
+- [ ] Add Navigation Module
 
 ---
 
@@ -30,6 +30,7 @@ Please feel free to submit additions, fixes, or changes!
 | `targeting` |  Ready | Mob selection mechanics |
 | `pulling` |  Ready | Pulling automation sequences |
 | `combat` |  Ready | Engagement and battle mechanics |
+| `jobs` |  Ready | Auto-Job Abilities & More |
 | `casting` |  Ready | Spell rotation handling |
 | `superwarp` |  Ready | Map and zone navigation integration |
 | `interaction`|  Ready | Direct NPC and trade mechanics |
@@ -84,6 +85,13 @@ Please feel free to submit additions, fixes, or changes!
 * `//autobot assist [target]` - Assist a target (defaults to player).
 * `//autobot disengage` - Disengage from combat.
 * `//autobot turn` - Spin character around 180 degrees.
+
+📘 Job Modules
+* `//autobot job <job> start` - Start the specified job module (e.g., SAM, MNK, WHM, RUN).
+* `//autobot job <job> stop` - Start the specified job module (e.g., SAM, MNK, WHM, RUN).
+* `//autobot job <job> <command>` - Toggle Job Abilities / Settings (Example: //autobot job SAM meditate)
+* `//autobot job <job> <command> <args...>` - Send a command with arguments to the job module. (Example: //autobot job RUN set ignis fire)
+* `//autobot job reload` - Reload all job modules based on your current main/sub job.
 
 ### 🔥 Magic Casting
 * `//autobot cast "spell" [target]` - Cast a specific spell.
