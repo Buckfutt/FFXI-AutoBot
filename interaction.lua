@@ -8,48 +8,38 @@ function interaction.set_packets(pkt)
     packets = pkt
 end
 
--- Function to target an NPC by name using packet injection.
+-- Tab to Target
 function interaction.target_npc(npc_name)
-    -- Clean up the provided target name: trim and convert to lowercase.
-    npc_name = npc_name:lower():gsub("^%s+", ""):gsub("%s+$", "")
-    
-    local mob_array = windower.ffxi.get_mob_array()
-    local target = nil
-    
-    -- Loop over every mob in the mob array.
-    for _, mob in ipairs(mob_array) do
-        if mob.name then
-            -- Clean up the mob name
-            local mob_name = mob.name:lower():gsub("^%s+", ""):gsub("%s+$", "")
-            -- Instead of requiring an exact match, we use string.find so a substring match will succeed.
-            if mob_name:find(npc_name, 1, true) then
-                target = mob
-                break
-            end
+    npc_name = npc_name:lower()
+
+    local attempts = 0
+    local max_attempts = 100   -- enough to cycle through everything once
+
+    local function try_cycle()
+        attempts = attempts + 1
+
+        local t = windower.ffxi.get_mob_by_target('t')
+        if t and t.name and t.name:lower():find(npc_name, 1, true) then
+            windower.add_to_chat(207, "[Interaction] Targeted: " .. t.name)
+            return
         end
+
+        if attempts >= max_attempts then
+            windower.add_to_chat(123, "[Interaction] Could not find target: " .. npc_name)
+            return
+        end
+
+        -- Press Tab
+        windower.send_command('setkey tab down')
+        coroutine.sleep(0.1)
+        windower.send_command('setkey tab up')
+
+        -- Try again shortly
+        coroutine.schedule(try_cycle, 0.1)
     end
 
-    if target then
-        local player = windower.ffxi.get_player()
-        if player then
-            coroutine.schedule(function()
-                -- Build and inject a packet similar to your monster targeting code.
-                local pkt = packets.new('incoming', 0x058, {
-                    ['Player'] = player.id,
-                    ['Target'] = target.id,
-                    ['Player Index'] = player.index,
-                })
-                packets.inject(pkt)
-                windower.add_to_chat(207, "Packet Targeting NPC: " .. target.name)
-            end, 0.2)
-        else
-            windower.add_to_chat(207, "Error: Player not found!")
-        end
-    else
-        windower.add_to_chat(207, "NPC not found: " .. npc_name)
-    end
+    try_cycle()
 end
-
 
 function interaction.press_key(key)
     local allowed_keys = {

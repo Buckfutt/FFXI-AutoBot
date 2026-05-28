@@ -1,30 +1,43 @@
 <?xml version="1.1" ?>
 <settings>
     <global>
+        <hp_threshold>25</hp_threshold>
         <modules>
             <casting>true</casting>
             <combat>true</combat>
             <follow>true</follow>
             <general>true</general>
+            <interaction>true</interaction>
             <pulling>false</pulling>
             <superwarp>true</superwarp>
             <targeting>false</targeting>
             <trusts>true</trusts>
         </modules>
+        <monitoring_enabled>
+            <hp>true</hp>
+            <mp>true</mp>
+        </monitoring_enabled>
+        <mp_threshold>25</mp_threshold>
         <pull_method>
             <action>flash</action>
             <type>spell</type>
         </pull_method>
         <target_list>blanched mandragora</target_list>
+        <trust_cooldowns>
+
+        </trust_cooldowns>
+        <trust_sets>
+
+        </trust_sets>
         <whitelist>coder</whitelist>
     </global>
     <coder>
         <modules>
-            <follow>false</follow>
             <pulling>true</pulling>
             <targeting>true</targeting>
             <trusts>false</trusts>
         </modules>
         <target_list>apex crab</target_list>
+        <whitelist>coder,richtor</whitelist>
     </coder>
 </settings>

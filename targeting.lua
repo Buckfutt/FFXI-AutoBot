@@ -4,7 +4,7 @@ local packets = require('packets')
 local targeting_event_id = nil         -- ID returned by windower.register_event
 local last_locked_target = nil         -- Stores the last locked target ID
 local last_target_change_time = 0      -- Timestamp of the last target change
-local retarget_delay = 5               -- Seconds to wait before switching targets if a new mob gets closer
+local retarget_delay = 3               -- Seconds to wait before switching targets if a new mob gets closer
 local debug = false                    -- Set true for extra debug output
 
 ----------------------------------------------------------------------
@@ -133,7 +133,7 @@ end
 ----------------------------------------------------------------------
 
 local attack_attempts = 0
-local max_attempts = 5
+local max_attempts = 15
 
 local function attempt_attack_until_engaged()
     local player = windower.ffxi.get_player()
@@ -235,10 +235,17 @@ function targeting.find_target()
         local current_target = windower.ffxi.get_mob_by_target('t')
 
         if current_target and current_target.id == new_target_id then
-            last_locked_target = new_target_id
-            last_target_change_time = os.time()
-            return
-        end
+			last_locked_target = new_target_id
+			last_target_change_time = os.time()
+
+			-- NEW: If not engaged, attack anyway
+			if player.status ~= 1 then
+				windower.send_command("input /attack <t>")
+				attempt_attack_until_engaged()
+			end
+
+			return
+		end
 
         local now = os.time()
         if last_locked_target and new_target_id ~= last_locked_target and (now - last_target_change_time) < retarget_delay then

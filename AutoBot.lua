@@ -1,5 +1,5 @@
 _addon.name = 'AutoBot'
-_addon.version = '1.2'
+_addon.version = '1.4'
 _addon.author = 'K0D3R'
 _addon.commands = {'autobot', 'ab', 'bot'}
 
@@ -17,10 +17,12 @@ local settings = config.load({
         casting      = true,
 		trusts       = true,
         superwarp    = true,
-		interaction  = true
+		interaction  = true,
+		jobs         = true
     },
     whitelist = L{},  -- default empty whitelist
-    target_list = L{} -- Initialize target list as a Windower list
+    target_list = L{}, -- Initialize target list as a Windower list
+	jobs = {}   	  -- Initialize job-specific settings as a Windower List
 })
 
 -- Convert all whitelist entries to strings to avoid comparing numbers with strings
@@ -39,9 +41,9 @@ local scripts = {
     pulling      = require('pulling'),
     combat       = require('combat'),
     casting      = require('casting'),
-	interaction  = require('interaction')
-
-	--trusts    = require('trusts')
+	interaction  = require('interaction'),
+	trusts    	 = require('trusts'),
+	jobs		 = {}
 }
 
 -- Pass packets reference to Modules:
@@ -56,8 +58,75 @@ scripts.targeting.set_settings(settings)
 scripts.pulling.set_settings(settings)
 
 -- Pass module references to Trust Manager
---trusts.set_modules(scripts.pulling, scripts.targeting)
+scripts.trusts.set_modules(scripts.pulling, scripts.targeting)
 
+--------------------------------------------------------------------------------
+-- JOB MODULE SYSTEM
+--------------------------------------------------------------------------------
+local function load_job_module(job)
+    -- Absolute path for file_exists()
+    local path = windower.addon_path .. 'Jobs/' .. job .. '.lua'
+
+    if not windower.file_exists(path) then
+        windower.add_to_chat(123, "[AutoBot] No job module found for: " .. job)
+        return
+    end
+
+    local module = require('Jobs/' .. job)
+    scripts.jobs[job] = module
+
+    if not settings.jobs[job] then
+        settings.jobs[job] = {}
+    end
+
+    module.init(settings.jobs[job])
+
+    windower.add_to_chat(207, "[AutoBot] Loaded job module: " .. job)
+end
+
+local function load_jobs()
+    local player = windower.ffxi.get_player()
+    if not player then return end
+
+    local mj = player.main_job
+    local sj = player.sub_job
+
+    -- Load main job
+    if mj and not scripts.jobs[mj] then
+        load_job_module(mj)
+    end
+
+    -- Load sub job
+    if sj and not scripts.jobs[sj] then
+        load_job_module(sj)
+    end
+end
+
+local function stop_all_jobs()
+    for job, module in pairs(scripts.jobs) do
+        if module.stop then
+            module.stop()
+        end
+    end
+end
+
+windower.register_event('incoming chunk', function(id, data)
+	if id == 0x00A then
+        stop_all_jobs()
+    end
+	
+	if id == 0x01B then
+        coroutine.schedule(load_jobs, 0.5)
+    end
+end)
+
+-- Auto-load job module on startup
+local player = windower.ffxi.get_player()
+if player and player.main_job then
+    load_jobs()
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 -- Function to toggle a module state
 local function toggle_module(module)
@@ -126,30 +195,63 @@ windower.register_event('chat message', function(message, sender, mode, is_gm)
 
     -- Forward sender's name correctly for followme
     if command == "followme" then
-        windower.add_to_chat(207, "[DEBUG] Forwarding followme command for sender: " .. sender)
+		if debug then
+			windower.add_to_chat(207, "[DEBUG] Forwarding followme command for sender: " .. sender)
+		end
+		
         windower.send_command('input //autobot followme ' .. sender)
 
     elseif command == "follow" then
         local target = args[1] or sender -- Follow target player, defaults to sender if not specified
 
-        -- Debugging output
-        windower.add_to_chat(207, "[Follow] Sender " .. sender .. " is whitelisted -> Following: " .. target)
+        if debug then
+			windower.add_to_chat(207, "[AutoBot:Follow] Sender " .. sender .. " is whitelisted -> Following: " .. target)
+		end
+		
         windower.send_command('input //autobot follow ' .. target)
 
 	elseif command == "trademe" then
-        windower.add_to_chat(207, "[DEBUG] Forwarding trademe command for sender: " .. sender)
+        if debug then
+			windower.add_to_chat(207, "[DEBUG] Forwarding trademe command for sender: " .. sender)
+		end
+		
         windower.send_command('input //autobot trademe ' .. sender)
 	
 	elseif command == "mount" then
-		local selected_mount = args[1] or "Crawler" -- Default to "Crawler" if none is specified
+		local selected_mount = args[1] or "Raptor" -- Default to "Raptor" if none is specified
 
-		-- Debugging output
-		windower.add_to_chat(207, "[Mount] Sender " .. sender .. " requests mount: " .. selected_mount)
+		if debug then
+			windower.add_to_chat(207, "[AutoBot:Mount] Sender " .. sender .. " requests mount: " .. selected_mount)
+		end
+		
 		windower.send_command('input //autobot mount ' .. selected_mount)
 
     else
         windower.send_command('input //autobot ' .. command .. ' ' .. table.concat(args, " ", 2))
     end
+end)
+
+--------------------------------------------------------------------------------
+-- Pre-Renderer Loop
+--------------------------------------------------------------------------------
+windower.register_event('prerender', function()
+    local info = windower.ffxi.get_info()
+    if info.loading then return end
+
+    -- JOB MODULE TICK
+    local player = windower.ffxi.get_player()
+	if player then
+		local mj = player.main_job
+		local sj = player.sub_job
+
+		if mj and scripts.jobs[mj] and scripts.jobs[mj].tick then
+			scripts.jobs[mj].tick()
+		end
+
+		if sj and scripts.jobs[sj] and scripts.jobs[sj].tick then
+			scripts.jobs[sj].tick()
+		end
+	end
 end)
 
 --------------------------------------------------------------------------------
@@ -160,10 +262,17 @@ windower.register_event('addon command', function(command, ...)
 
     if command == 'save' then
         config.save(settings)
+		
+		-- Save job settings
+        for job, module in pairs(scripts.jobs) do
+            if module.save then module.save() end
+        end
+		
         windower.add_to_chat(207, "[AutoBot] Settings saved successfully.")
 
     elseif command == 'load' then
         settings = config.load()
+		
         -- Convert whitelist values to strings after loading.
         if settings.whitelist then
             for i, v in ipairs(settings.whitelist) do
@@ -218,6 +327,11 @@ windower.register_event('addon command', function(command, ...)
         windower.add_to_chat(207, "//autobot disengage              - (Combat) Disengage from combat")
         windower.add_to_chat(207, "//autobot turn                   - (Combat) Execute a turn command")
         
+		windower.add_to_chat(207, "------ JOB MODULES ------")
+        windower.add_to_chat(207, "//ab job <job> start        		- Start job module")
+        windower.add_to_chat(207, "//ab job <job> stop			    - Stop job module")
+        windower.add_to_chat(207, "//ab job <job> <cmd>     		- Set job commands (//ab job sam hasso)")
+		
         windower.add_to_chat(207, "------ CASTING ------")
         windower.add_to_chat(207, "//autobot cast \"spell\" [target]  - (Casting) Cast a spell")
         windower.add_to_chat(207, "//autobot stopcasting            - (Casting) Stop casting")
@@ -255,56 +369,56 @@ windower.register_event('addon command', function(command, ...)
     -- Whitelist commands --
 	------------------------
     elseif command == 'whitelist' then
-    local subcmd = args[1] and args[1]:lower() or ""
-    if subcmd == "add" then
-        if args[2] then
-            local user = tostring(args[2])  -- Convert input to string
-            if not settings.whitelist:contains(user:lower()) then
-                settings.whitelist:append(user:lower())  -- Ensure case consistency
-                config.save(settings)
-                windower.add_to_chat(207, "User " .. user .. " has been added to the whitelist.")
-            else
-                windower.add_to_chat(123, "User " .. user .. " is already whitelisted.")
-            end
-        else
-            windower.add_to_chat(123, "Usage: //autobot whitelist add <username>")
-        end
-	elseif subcmd == "remove" then
-		if args[2] then
-			local user = tostring(args[2]):lower()  -- Convert input to lowercase string
-			local index = nil
-
-			-- Manually search for the index of the user in the whitelist
-			for i, name in ipairs(settings.whitelist) do
-				if name:lower() == user then
-					index = i
-					break
+		local subcmd = args[1] and args[1]:lower() or ""
+		if subcmd == "add" then
+			if args[2] then
+				local user = tostring(args[2])  -- Convert input to string
+				if not settings.whitelist:contains(user:lower()) then
+					settings.whitelist:append(user:lower())  -- Ensure case consistency
+					config.save(settings)
+					windower.add_to_chat(207, "User " .. user .. " has been added to the whitelist.")
+				else
+					windower.add_to_chat(123, "User " .. user .. " is already whitelisted.")
 				end
-			end
-
-			-- If user is found, remove them from the whitelist
-			if index then
-				settings.whitelist:remove(index)  -- Remove by index instead of value
-				config.save(settings)
-				windower.add_to_chat(207, "User " .. user .. " has been removed from the whitelist.")
 			else
-				windower.add_to_chat(123, "User " .. user .. " is not in the whitelist.")
+				windower.add_to_chat(123, "Usage: //autobot whitelist add <username>")
+			end
+		elseif subcmd == "remove" then
+			if args[2] then
+				local user = tostring(args[2]):lower()  -- Convert input to lowercase string
+				local index = nil
+
+				-- Manually search for the index of the user in the whitelist
+				for i, name in ipairs(settings.whitelist) do
+					if name:lower() == user then
+						index = i
+						break
+					end
+				end
+
+				-- If user is found, remove them from the whitelist
+				if index then
+					settings.whitelist:remove(index)  -- Remove by index instead of value
+					config.save(settings)
+					windower.add_to_chat(207, "User " .. user .. " has been removed from the whitelist.")
+				else
+					windower.add_to_chat(123, "User " .. user .. " is not in the whitelist.")
+				end
+			else
+				windower.add_to_chat(123, "Usage: //autobot whitelist remove <username>")
+			end
+		elseif subcmd == "list" then
+			if #settings.whitelist > 0 then
+				windower.add_to_chat(207, "Whitelisted Users:")
+				for i, user in ipairs(settings.whitelist) do
+					windower.add_to_chat(207, "- " .. user)
+				end
+			else
+				windower.add_to_chat(207, "No users whitelisted.")
 			end
 		else
-			windower.add_to_chat(123, "Usage: //autobot whitelist remove <username>")
+			windower.add_to_chat(123, "Usage: //autobot whitelist [add/remove/list] <username>")
 		end
-    elseif subcmd == "list" then
-        if #settings.whitelist > 0 then
-            windower.add_to_chat(207, "Whitelisted Users:")
-            for i, user in ipairs(settings.whitelist) do
-                windower.add_to_chat(207, "- " .. user)
-            end
-        else
-            windower.add_to_chat(207, "No users whitelisted.")
-        end
-    else
-        windower.add_to_chat(123, "Usage: //autobot whitelist [add/remove/list] <username>")
-    end
 
 	-----------------------------
     -- General module commands --
@@ -325,22 +439,23 @@ windower.register_event('addon command', function(command, ...)
 	-- Interaction Commands   --
 	----------------------------
 	elseif command == 'tnpc' then
-		if settings.modules.interaction then
-			local sender = windower.ffxi.get_mob_by_target('me').name
-			if is_whitelisted(sender) then
-				if args and args[1] then
-					-- Join all args in case the NPC name has spaces.
-					local npc_name = table.concat(args, " ")
-					scripts.interaction.target_npc(npc_name)
-				else
-					windower.add_to_chat(123, "Usage: //ab tnpc <npc_name>")
-				end
-			else
-				windower.add_to_chat(123, "Error: You are not whitelisted to use tnpc!")
-			end
-		else
-			windower.add_to_chat(123, "Interaction module is disabled!")
-		end
+    if settings.modules.interaction then
+        local sender = windower.ffxi.get_mob_by_target('me').name
+        if is_whitelisted(sender) then
+            if args and args[1] then
+                local npc_name = table.concat(args, " "):gsub("^%s+", ""):gsub("%s+$", "")
+                windower.add_to_chat(207, "[Interaction] Searching for NPC: " .. npc_name)
+                scripts.interaction.target_npc(npc_name)
+            else
+                windower.add_to_chat(123, "Usage: //ab tnpc <npc_name>")
+            end
+        else
+            windower.add_to_chat(123, "Error: You are not whitelisted to use tnpc!")
+        end
+    else
+        windower.add_to_chat(123, "Interaction module is disabled!")
+    end
+
 
 	elseif command == 'key' then
 		if settings.modules.interaction then
@@ -358,6 +473,40 @@ windower.register_event('addon command', function(command, ...)
 			windower.add_to_chat(123, "Interaction module is disabled!")
 		end
 	
+	--------------------------------------------------------------------------------
+	-- Job Commands
+	--------------------------------------------------------------------------------
+	elseif command == 'job' then
+		local job = args[1] and args[1]:upper()
+		local subcmd = args[2] and args[2]:lower()
+
+		if not job or not scripts.jobs[job] then
+			windower.add_to_chat(123, "[AutoBot] No job module loaded for: " .. tostring(job))
+			return
+		end
+
+		-- //ab job <job> start
+		if subcmd == 'start' then
+			scripts.jobs[job].start()
+			return
+		end
+
+		-- //ab job <job> stop
+		if subcmd == 'stop' then
+			scripts.jobs[job].stop()
+			return
+		end
+
+		-- //ab job <job> <cmd> <args...>
+		if scripts.jobs[job].command then
+			-- Forward everything after <job> <subcmd>
+			local forwarded_args = { select(3, unpack(args)) }
+			scripts.jobs[job].command(subcmd, forwarded_args)
+		else
+			windower.add_to_chat(123, "[AutoBot] Job module has no command handler.")
+		end
+
+	
 	-------------------
 	-- Mount Control --
 	-------------------
@@ -365,13 +514,20 @@ windower.register_event('addon command', function(command, ...)
 		if settings.modules.general then
 			local sender = windower.ffxi.get_mob_by_target('me').name
 			if is_whitelisted(sender) then
-				scripts.general.mountup()
+
+				if args[1] and args[1] ~= "" then
+					scripts.general.mount(args[1])	-- User specified a mount name
+				else
+					scripts.general.mountup()	-- No mount specified → default behavior
+				end
+
 			else
 				windower.add_to_chat(123, "Error: You are not whitelisted to mount!")
 			end
-        else
-            windower.add_to_chat(123, "General module is disabled!")
-        end
+		else
+			windower.add_to_chat(123, "General module is disabled!")
+		end
+
 	elseif command == "mountup" then
 		if settings.modules.general then
 			local sender = windower.ffxi.get_mob_by_target('me').name
@@ -380,9 +536,9 @@ windower.register_event('addon command', function(command, ...)
 			else
 				windower.add_to_chat(123, "Error: You are not whitelisted to mount!")
 			end
-        else
-            windower.add_to_chat(123, "General module is disabled!")
-        end
+		else
+			windower.add_to_chat(123, "General module is disabled!")
+		end
 	
 	elseif command == "dismount" then
 		if settings.modules.general then
@@ -498,8 +654,6 @@ windower.register_event('addon command', function(command, ...)
 		end
 
     elseif command == "trademe" then
-        -- trademe: should trade with the command-issuing player. The chat event is
-        -- expected to forward the sender's name in args[1].
         if settings.modules.general then
             if args[1] and args[1] ~= "" then
                 local target = args[1]
@@ -517,7 +671,7 @@ windower.register_event('addon command', function(command, ...)
         end
 
     elseif command == 'trade' then
-        -- trade: the target name is provided; we use the local player's name as sender.
+        -- trade: the target name if provided; we use the local player's name as sender.
         if settings.modules.general then
             if args[1] and args[1] ~= "" then
                 local sender = windower.ffxi.get_player().name
@@ -534,7 +688,6 @@ windower.register_event('addon command', function(command, ...)
         end
 
     elseif command == 'accepttrade' then
-        -- accepttrade: only allowed for whitelisted users.
         if settings.modules.general then
             local sender = windower.ffxi.get_player().name
             if is_whitelisted(sender) then
@@ -547,7 +700,6 @@ windower.register_event('addon command', function(command, ...)
         end
 
     elseif command == 'canceltrade' then
-        -- canceltrade: only allowed for whitelisted users.
         if settings.modules.general then
             local sender = windower.ffxi.get_player().name
             if is_whitelisted(sender) then
@@ -560,7 +712,6 @@ windower.register_event('addon command', function(command, ...)
         end
 
     elseif command == 'tradeallgil' then
-        -- tradeallgil: only allowed for whitelisted users.
         if settings.modules.general then
             local sender = windower.ffxi.get_player().name
             if is_whitelisted(sender) then
@@ -639,67 +790,127 @@ windower.register_event('addon command', function(command, ...)
 --			windower.add_to_chat(123, "Follow module is disabled!")
 --		end
 
+	---------------------------
+	-- Trust Module Commands --
+	---------------------------
+	elseif command == 'trust' or command == 'trusts' then
+		local subcmd = args[1] and args[1]:lower() or ""
+
+		-- SAVE CURRENT TRUSTS
+		if subcmd == "save" then
+			local set_name = args[2]
+			if not set_name then
+				windower.add_to_chat(123, "[Trusts] Usage: trust save <setname>")
+				return
+			end
+			scripts.trusts.save_set(set_name)
+			return
+
+		-- LIST SETS
+		elseif subcmd == "list" then
+			scripts.trusts.list_sets()
+			return
+
+		-- SUMMON / USE SET
+		elseif subcmd == "summon" or subcmd == "use" then
+			local set_name = args[2]
+			if not set_name then
+				windower.add_to_chat(123, "[Trusts] Usage: trust summon <setname>")
+				return
+			end
+			scripts.trusts.summon_set(set_name)
+			return
+
+		-- MONITOR HP/MP
+		elseif subcmd == "monitor" then
+			local mode = args[2] and args[2]:lower() or ""
+			local threshold1 = tonumber(args[3]) or 25
+			local threshold2 = tonumber(args[4]) or 25
+
+			if mode == "hp" or mode == "mp" or mode == "both" then
+				scripts.trusts.monitor(mode, threshold1, threshold2)
+			else
+				windower.add_to_chat(123, "Usage: trust monitor <hp/mp/both> <threshold>")
+			end
+			return
+
+		-- RELEASE TRUST
+		elseif subcmd == "release" then
+			local trust_name = args[2]
+			if not trust_name then
+				windower.add_to_chat(123, "[Trusts] Usage: trust release <trustname>")
+				return
+			end
+			scripts.trusts.release(trust_name)
+			return
+
+		-- COOLDOWNS
+		elseif subcmd == "cooldowns" then
+			scripts.trusts.list_cooldowns()
+			return
+
+		else
+			windower.add_to_chat(123, "Usage: trust <save / list / summon / use / monitor / release / cooldowns>")
+			return
+		end
+
 	------------------------------
-    -- Superwarp module command (moved here) --
-    ------------------------------
-    elseif command == 'warp' or command == 'warpto' then
-        if settings.modules.superwarp then
-            if #args < 2 then
-                windower.add_to_chat(123, "Error: Insufficient parameters. Usage: !warpto <warp type> <warp location> [index]")
-                return
-            end
+	-- Superwarp Module Commands --
+	------------------------------
+	elseif command == 'warp' or command == 'warpto' then
+		if settings.modules.superwarp then
+			if #args < 2 then
+				windower.add_to_chat(123, "Error: Usage: !warpto <warp type> <warp location> [index]")
+				return
+			end
 
-            local warp_type = args[1]
-            local warp_location = ""
-            local index = "1"  -- Default index
+			local warp_type = args[1]
+			local warp_location = ""
+			local index = "1"
 
-            -- If the warp location starts with a quote, process quoted format.
-            if args[2]:sub(1,1) == '"' then
-                local loc_tokens = {}
-                local closing_quote_found = false
-                local end_index = 2
-                for i = 2, #args do
-                    table.insert(loc_tokens, args[i])
-                    if args[i]:sub(-1) == '"' then
-                        closing_quote_found = true
-                        end_index = i
-                        break
-                    end
-                end
-                if not closing_quote_found then
-                    windower.add_to_chat(123, "Error: Closing quote for warp location not found.")
-                    return
-                end
-                warp_location = table.concat(loc_tokens, " ")
-                warp_location = warp_location:sub(2, -2)  -- remove the surrounding quotes
-                if end_index < #args then
-                    index = args[end_index + 1]
-                end
-            else
-                -- Auto-translate format: join from token 2 onward.
-                local tokens = {}
-                for i = 2, #args do
-                    table.insert(tokens, args[i])
-                end
-                local potential_index = tokens[#tokens]
-                if tonumber(potential_index) then
-                    index = potential_index
-                    table.remove(tokens, #tokens)
-                end
-                warp_location = table.concat(tokens, " ")
-            end
+			if args[2]:sub(1,1) == '"' then
+				local loc_tokens = {}
+				local closing_quote_found = false
+				local end_index = 2
+				for i = 2, #args do
+					table.insert(loc_tokens, args[i])
+					if args[i]:sub(-1) == '"' then
+						closing_quote_found = true
+						end_index = i
+						break
+					end
+				end
+				if not closing_quote_found then
+					windower.add_to_chat(123, "Error: Closing quote for warp location not found.")
+					return
+				end
+				warp_location = table.concat(loc_tokens, " "):sub(2, -2)
+				if end_index < #args then
+					index = args[end_index + 1]
+				end
+			else
+				local tokens = {}
+				for i = 2, #args do
+					table.insert(tokens, args[i])
+				end
+				local potential_index = tokens[#tokens]
+				if tonumber(potential_index) then
+					index = potential_index
+					table.remove(tokens, #tokens)
+				end
+				warp_location = table.concat(tokens, " ")
+			end
 
-            --windower.add_to_chat(207, "[DEBUG] Warp command received: Type: " .. warp_type .. ", Location: " .. warp_location .. ", Index: " .. index)
-            local cmd = 'input //sw ' .. warp_type .. ' "' .. warp_location .. '" ' .. index
-            --windower.add_to_chat(207, "[DEBUG] Executing command: " .. cmd)
-            windower.send_command(cmd)
-            local party_msg = 'input /p [Superwarp] ' .. warp_type .. ' "' .. warp_location .. '" @ [' .. index .. ']'
-            coroutine.schedule(function()
-                windower.send_command(party_msg)
-            end, 0.15)
-        else
-            windower.add_to_chat(123, "Superwarp module is disabled!")
-        end
+			local cmd = 'input //sw ' .. warp_type .. ' "' .. warp_location .. '" ' .. index
+			windower.send_command(cmd)
+
+			local party_msg = 'input /p [Superwarp] ' .. warp_type .. ' "' .. warp_location .. '" @ [' .. index .. ']'
+			coroutine.schedule(function()
+				windower.send_command(party_msg)
+			end, 0.15)
+		else
+			windower.add_to_chat(123, "Superwarp module is disabled!")
+		end
 
 	-------------------------------
 	-- Targeting Module Commands --
@@ -756,7 +967,7 @@ windower.register_event('addon command', function(command, ...)
 			scripts.targeting.stop()
 
         else
-            windower.add_to_chat(settings.add_to_chat_mode, "Usage: //autobot target [add/remove/list] <monster>")
+            windower.add_to_chat(settings.add_to_chat_mode, "Usage: //autobot target [add / remove / list] <monster>")
         end
 
 	-----------------------------
@@ -772,13 +983,13 @@ windower.register_event('addon command', function(command, ...)
             local action_name = table.concat(args, " ", 3)
             if method_type == 'spell' and action_name ~= "" then
                 settings.pull_method = { type = 'spell', action = action_name }
-                windower.add_to_chat(207, '[Pulling] Set method to: Spell - ' .. action_name)
+                windower.add_to_chat(207, '[AutoBot:Pulling] Set method to: Spell - ' .. action_name)
             elseif method_type == 'ranged' then
                 settings.pull_method = { type = 'ranged' }
-                windower.add_to_chat(207, '[Pulling] Set method to: Ranged Attack')
+                windower.add_to_chat(207, '[AutoBot:Pulling] Set method to: Ranged Attack')
             elseif method_type == 'ability' and action_name ~= "" then
                 settings.pull_method = { type = 'ability', action = action_name }
-                windower.add_to_chat(207, '[Pulling] Set method to: Job Ability - ' .. action_name)
+                windower.add_to_chat(207, '[AutoBot:Pulling] Set method to: Job Ability - ' .. action_name)
             else
                 windower.add_to_chat(123, "Usage: //autobot pull method [spell/ranged/ability] \"action_name\"")
             end
@@ -793,7 +1004,7 @@ windower.register_event('addon command', function(command, ...)
         if settings.modules.combat then
             local sender = windower.ffxi.get_mob_by_target('me').name
             if is_whitelisted(sender) then
-                windower.add_to_chat(207, "[Combat] Executing attack!")
+                windower.add_to_chat(207, "[AutoBot:Combat] Executing attack!")
                 scripts.combat.attack()
             else
                 windower.add_to_chat(123, "Error: You are not whitelisted to attack!")
@@ -807,7 +1018,7 @@ windower.register_event('addon command', function(command, ...)
             local sender = windower.ffxi.get_mob_by_target('me').name
             if is_whitelisted(sender) then
                 local target = args[1] or windower.ffxi.get_player().name
-                windower.add_to_chat(207, "[Combat] Assisting: " .. target .. "!")
+                windower.add_to_chat(207, "[AutoBot:Combat] Assisting: " .. target .. "!")
                 scripts.combat.assist(target)
             else
                 windower.add_to_chat(123, "Error: You are not whitelisted to assist!")
@@ -820,7 +1031,7 @@ windower.register_event('addon command', function(command, ...)
         if settings.modules.combat then
             local sender = windower.ffxi.get_mob_by_target('me').name
             if is_whitelisted(sender) then
-                windower.add_to_chat(207, "[Combat] Disengaging!")
+                windower.add_to_chat(207, "[AutoBot:Combat] Disengaging!")
                 scripts.combat.disengage()
             else
                 windower.add_to_chat(123, "Error: You are not whitelisted to disengage!")
@@ -833,7 +1044,9 @@ windower.register_event('addon command', function(command, ...)
         if settings.modules.combat then
             local sender = windower.ffxi.get_mob_by_target('me').name
             if is_whitelisted(sender) then
-                windower.add_to_chat(207, "[Combat] Turning!")
+				if debug then
+					windower.add_to_chat(207, "[AutoBot:Combat] Turning!")
+				end
                 scripts.combat.turn()
             else
                 windower.add_to_chat(123, "Error: You are not whitelisted to turn!")
@@ -841,6 +1054,49 @@ windower.register_event('addon command', function(command, ...)
         else
             windower.add_to_chat(123, "Combat module is disabled!")
         end
+
+	-----------------------------------------
+	-- Remote Job Module Commands (!job)   --
+	-----------------------------------------
+	elseif command == 'job' then
+		local sender = windower.ffxi.get_player().name
+
+		if not is_whitelisted(sender) then
+			windower.add_to_chat(123, "Error: Sender " .. sender .. " is not whitelisted for !job!")
+			return
+		end
+
+		local job = args[1] and args[1]:upper()
+		if not job then
+			windower.add_to_chat(123, "Error: No job provided for !job command!")
+			return
+		end
+
+		if not scripts.jobs[job] then
+			windower.add_to_chat(123, "Error: No job module loaded for: " .. job)
+			return
+		end
+
+		local subcmd = args[2]
+		if not subcmd then
+			windower.add_to_chat(123, "Error: No subcommand provided for !job " .. job .. "!")
+			return
+		end
+
+		-- Build argument list for job module
+		local job_args = {}
+		for i = 3, #args do
+			table.insert(job_args, args[i])
+		end
+
+		windower.add_to_chat(
+			207,
+			"[AutoBot:" .. job .. "] Remote command from " .. sender ..
+			": " .. subcmd .. " " .. table.concat(job_args, " ")
+		)
+
+		-- Forward to job module
+		scripts.jobs[job].command(subcmd, job_args)
 
 	-----------------------------
 	-- Casting module commands --
@@ -852,12 +1108,13 @@ windower.register_event('addon command', function(command, ...)
             local spell = args[1] -- Correctly take the spell from args[1]
             local target = args[2] or "<me>" -- Default to <me> if no target is given
 
-            -- Debugging: Print extracted values
-            windower.add_to_chat(207, "[DEBUG] Extracted spell: " .. tostring(spell))
-            windower.add_to_chat(207, "[DEBUG] Extracted target: " .. tostring(target))
+            if debug then
+				windower.add_to_chat(207, "[DEBUG] Extracted spell: " .. tostring(spell))
+				windower.add_to_chat(207, "[DEBUG] Extracted target: " .. tostring(target))
+			end
 
             if spell and spell ~= "" then
-                windower.add_to_chat(207, "[Casting] Executing spell: " .. spell .. " on target: " .. target)
+                windower.add_to_chat(207, "[AutoBot:Casting] Executing spell: " .. spell .. " on target: " .. target)
                 scripts.casting.cast_spell(spell, target)
             else
                 windower.add_to_chat(123, "Error: No spell provided. Usage: !cast \"spellname\" [target]")
@@ -873,7 +1130,7 @@ windower.register_event('addon command', function(command, ...)
         if settings.modules.casting then
             local sender = windower.ffxi.get_mob_by_target('me').name
             if is_whitelisted(sender) then
-                windower.add_to_chat(207, "[Casting] Stopping casting!")
+                windower.add_to_chat(207, "[AutoBot:Casting] Stopping casting!")
                 scripts.casting.stop_casting()
             else
                 windower.add_to_chat(123, "Error: You are not whitelisted to stop casting!")
@@ -881,61 +1138,5 @@ windower.register_event('addon command', function(command, ...)
         else
             windower.add_to_chat(123, "Casting module is disabled!")
         end
-	
-	
-	---------------------------
-	-- Trust Module Commands --
-	---------------------------
-	elseif command == 'trust' then
-    local subcmd = args[1] and args[1]:lower() or ""
-
-    if subcmd == "save" then
-        local set_name = args[2]
-        local trust_list = { unpack(args, 3) }
-        if set_name and #trust_list > 0 then
-            trusts.save_set(set_name, trust_list)
-        else
-            windower.add_to_chat(123, "Error: Invalid trust set name or empty list. Usage: trust save <setname> <trust1> <trust2> ...")
-        end
-
-    elseif subcmd == "list" then
-        trusts.list_sets()
-
-    elseif subcmd == "summon" then
-        local set_name = args[2]
-        if set_name then
-            trusts.summon_set(set_name)
-        else
-            windower.add_to_chat(123, "Error: No trust set specified. Usage: trust summon <setname>")
-        end
-
-    elseif subcmd == "monitor" then
-        local mode = args[2] and args[2]:lower() or ""
-        local threshold1 = tonumber(args[3]) or 25
-        local threshold2 = tonumber(args[4]) or 25
-
-        if mode == "hp" or mode == "mp" or mode == "both" then
-            trusts.monitor(mode, threshold1, threshold2)
-        else
-            windower.add_to_chat(123, "Usage: trust monitor <hp/mp/both> <threshold>")
-        end
-
-    elseif subcmd == "release" then
-        local trust_name = args[2]
-        if trust_name then
-            trusts.release(trust_name)
-        else
-            windower.add_to_chat(123, "Error: No trust provided for release. Usage: trust release <trustname>")
-        end
-
-    elseif subcmd == "cooldowns" then
-        trusts.list_cooldowns()
-
-    else
-        windower.add_to_chat(123, "Usage: trust <save/list/summon/monitor/release/cooldowns>")
-    end
-	
-    else
-        windower.add_to_chat(123, "Error: Unknown command: " .. command)
-    end
+	end
 end)
