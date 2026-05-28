@@ -1,5 +1,0 @@
-Fixed Mount Command to properly use specified mount.
-Fixed TNPC Command
-Updated Trusts Module (This needs testing)
-Fixed Targeting Issue (again)
-Added Job Module System
