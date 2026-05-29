@@ -77,10 +77,10 @@ Please feel free to submit additions, fixes, or changes!
 
 ### 🧭 Navigation System
 * `//autobot nav record <Name>` - Begin recording a new navigation path. Automatically captures movement points as you travel.
-* * `//autobot nav stop` - Stop recording or stop active navigation immediately. Player movement halts instantly.
-* * `//autobot nav start <Name>` - Start navigating along a previously recorded path.
-* * `//autobot nav loop` - Toggle loop mode. When enabled, the path restarts from the beginning after reaching the end.
-* * `//autobot nav reverse  ` - Toggle reverse mode. When enabled, the path is run backwards once (end → start), then navigation stops. (Automatically disables bounce mode.)
+* `//autobot nav stop` - Stop recording or stop active navigation immediately. Player movement halts instantly.
+* `//autobot nav start <Name>` - Start navigating along a previously recorded path.
+* `//autobot nav loop` - Toggle loop mode. When enabled, the path restarts from the beginning after reaching the end.
+* `//autobot nav reverse  ` - Toggle reverse mode. When enabled, the path is run backwards once (end → start), then navigation stops. (Automatically disables bounce mode.)
 * * `//autobot nav bounce` - Toggle bounce mode. The character runs the path forward → backward endlessly. (Automatically disables reverse mode.)
 
 ### 🏹 Pulling
