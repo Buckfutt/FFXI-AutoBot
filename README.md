@@ -16,7 +16,6 @@ Please feel free to submit additions, fixes, or changes!
 
 ## 🛠️ To-Do List
 - [ ] Finish writing the Trusts Module.
-- [ ] Add Navigation Module
 
 ---
 
