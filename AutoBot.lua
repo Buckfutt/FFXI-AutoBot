@@ -1,5 +1,5 @@
 _addon.name = 'AutoBot'
-_addon.version = '1.4.2'
+_addon.version = '1.4.3'
 _addon.author = 'K0D3R'
 _addon.commands = {'autobot', 'ab', 'bot'}
 
@@ -585,42 +585,62 @@ windower.register_event('addon command', function(command, ...)
 			windower.add_to_chat(123, "[AutoBot] Job module has no command handler.")
 		end
 
-	---------------------------------------------------------
-	-- NAVIGATION COMMANDS
-	---------------------------------------------------------
+	-------------------------
+	-- Navigation Control --
+	-------------------------
 	elseif command == 'nav' then
-		local sub = args[1] and args[1]:lower()
+		if settings.modules.navigation then
+			local sender = windower.ffxi.get_mob_by_target('me').name
 
-		if sub == 'record' and args[2] then
-			scripts.navigation.start_record(args[2])
+			if is_whitelisted(sender) then
+				local sub = args[1] and args[1]:lower()
 
-		elseif sub == 'stop' then
-			if scripts.navigation.is_recording() then
-				scripts.navigation.stop_record()
+				if sub == 'record' then
+					if args[2] and args[2] ~= "" then
+						scripts.navigation.start_record(args[2])
+					else
+						windower.add_to_chat(123, "[Nav] Error: You must provide a path name to record!")
+					end
+
+				elseif sub == 'stop' then
+					if scripts.navigation.is_recording() then
+						scripts.navigation.stop_record()
+					else
+						scripts.navigation.stop_playback()
+					end
+
+				elseif sub == 'start' then
+					if args[2] and args[2] ~= "" then
+						scripts.navigation.start_playback(args[2])
+					else
+						windower.add_to_chat(123, "[Nav] Error: You must provide a path name to start!")
+					end
+
+				elseif sub == 'loop' then
+					scripts.navigation.toggle_loop()
+
+				elseif sub == 'reverse' then
+					scripts.navigation.toggle_reverse()
+
+				elseif sub == 'bounce' then
+					scripts.navigation.toggle_bounce()
+
+				else
+					windower.add_to_chat(123, "[Nav] Usage:")
+					windower.add_to_chat(207, "//autobot nav record <Name>   - Begin recording a new path")
+					windower.add_to_chat(207, "//autobot nav stop            - Stop recording or navigation")
+					windower.add_to_chat(207, "//autobot nav start <Name>    - Start navigating a saved path")
+					windower.add_to_chat(207, "//autobot nav loop            - Toggle loop mode")
+					windower.add_to_chat(207, "//autobot nav reverse         - Toggle reverse mode (run backwards once)")
+					windower.add_to_chat(207, "//autobot nav bounce          - Toggle bounce mode (run back and forth endlessly)")
+				end
+
 			else
-				scripts.navigation.stop_playback()
+				windower.add_to_chat(123, "Error: You are not whitelisted to use navigation commands!")
 			end
 
-		elseif sub == 'start' and args[2] then
-			scripts.navigation.start_playback(args[2])
-
-		elseif sub == 'loop' then
-			scripts.navigation.toggle_loop()
-			
-		elseif sub == 'reverse' then
-			scripts.navigation.toggle_reverse()
-		
-		elseif sub == 'bounce' then
-			scripts.navigation.toggle_bounce()
-
 		else
-			windower.add_to_chat(123, "[Nav] Usage:")
-			windower.add_to_chat(207, "//ab nav record <Name>")
-			windower.add_to_chat(207, "//ab nav stop")
-			windower.add_to_chat(207, "//ab nav start <Name>")
-			windower.add_to_chat(207, "//ab nav loop")
-			windower.add_to_chat(207, "//ab nav reverse")
-			windower.add_to_chat(207, "//ab nav bounce")
+			windower.add_to_chat(123, "Navigation module is disabled!")
 		end
 	
 	-------------------
