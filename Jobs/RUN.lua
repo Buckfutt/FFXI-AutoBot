@@ -25,6 +25,8 @@ function RUN.init(cfg)
         usePflug = false,
         desiredSlots = {}
     }
+
+    settings.desiredSlots = settings.desiredSlots or {}
 end
 
 ------------------------------------------------------------
@@ -95,9 +97,11 @@ function RUN.setRunes(a, b, c)
 
     settings.desiredSlots = {}
 
-    for _, r in ipairs({convert(a), convert(b), convert(c)}) do
-        if r then table.insert(settings.desiredSlots, r) end
-    end
+	local runes = { convert(a), convert(b), convert(c) }
+
+	if runes[1] then settings.desiredSlots.slot1 = runes[1] end
+	if runes[2] then settings.desiredSlots.slot2 = runes[2] end
+	if runes[3] then settings.desiredSlots.slot3 = runes[3] end
 
     windower.add_to_chat(207, "[AutoBot:RUN] Rune slots updated.")
 end
@@ -109,15 +113,24 @@ local function maintainRunes()
     local p = safePlayer()
     if not p then return end
 
+    if not settings.desiredSlots or next(settings.desiredSlots) == nil then
+        return
+    end
+
     local maxSlots = (p.main_job == 'RUN') and 3 or 2
 
-    for slot = 1, maxSlots do
-        local desired = settings.desiredSlots[slot]
-        local current = activeRuneList[slot]
+    activeRuneList = activeRuneList or {}
 
-        if desired and current ~= desired then
-            autoJA(desired, '<me>')
-            return
+    for slot = 1, maxSlots do
+        local desired = settings.desiredSlots["slot" .. slot]
+
+        if desired then
+            local current = activeRuneList[slot]
+
+            if current ~= desired then
+                autoJA(desired, '<me>')
+                return
+            end
         end
     end
 end
@@ -155,7 +168,7 @@ local function performAbilities()
 end
 
 ------------------------------------------------------------
--- TICK (called every pre-render)
+-- TICK
 ------------------------------------------------------------
 function RUN.tick()
     if not enabled then return end

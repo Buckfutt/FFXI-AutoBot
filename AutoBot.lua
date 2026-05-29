@@ -6,6 +6,11 @@ _addon.commands = {'autobot', 'ab', 'bot'}
 local packets = require('packets')
 config = require('config')
 
+-- Store Job Info
+local last_main_job = nil
+local last_sub_job  = nil
+local globalPause = false
+
 -- Define module states and load settings (including a whitelist field)
 local settings = config.load({
     modules = {
@@ -52,7 +57,6 @@ scripts.follow.set_packets(packets)
 scripts.targeting.set_packets(packets)
 scripts.interaction.set_packets(packets)
 
-
 -- Pass Settings reference to Modules:
 scripts.targeting.set_settings(settings)
 scripts.pulling.set_settings(settings)
@@ -60,11 +64,21 @@ scripts.pulling.set_settings(settings)
 -- Pass module references to Trust Manager
 scripts.trusts.set_modules(scripts.pulling, scripts.targeting)
 
+-- Global Pause required after adding Job Scripts
+scripts.pause = function(seconds)
+    globalPause = true
+    coroutine.schedule(function()
+        globalPause = false
+    end, seconds)
+end
+
 --------------------------------------------------------------------------------
 -- JOB MODULE SYSTEM
 --------------------------------------------------------------------------------
 local function load_job_module(job)
-    -- Absolute path for file_exists()
+    -- Always uppercase job name
+    job = job:upper()
+
     local path = windower.addon_path .. 'Jobs/' .. job .. '.lua'
 
     if not windower.file_exists(path) then
@@ -88,8 +102,9 @@ local function load_jobs()
     local player = windower.ffxi.get_player()
     if not player then return end
 
-    local mj = player.main_job
-    local sj = player.sub_job
+    -- Normalize job names
+    local mj = player.main_job and player.main_job:upper()
+    local sj = player.sub_job and player.sub_job:upper()
 
     -- Load main job
     if mj and not scripts.jobs[mj] then
@@ -110,13 +125,45 @@ local function stop_all_jobs()
     end
 end
 
+local function check_job_change()
+    local player = windower.ffxi.get_player()
+    if not player then return end
+
+    local mj = player.main_job
+    local sj = player.sub_job
+
+    -- First load (addon startup)
+    if last_main_job == nil then
+        last_main_job = mj
+        last_sub_job  = sj
+        load_jobs()
+        return
+    end
+
+    -- Job changed
+    if mj ~= last_main_job or sj ~= last_sub_job then
+		if debug then
+			windower.add_to_chat(207, "[AutoBot] Job change detected: Reloading job modules.")
+		end
+
+        stop_all_jobs()
+        scripts.jobs = {} -- clear loaded modules
+        load_jobs()
+
+        last_main_job = mj
+        last_sub_job  = sj
+    end
+end
+
 windower.register_event('incoming chunk', function(id, data)
-	if id == 0x00A then
+    if id == 0x00A then
+        -- Zoning start: stop all job modules
         stop_all_jobs()
     end
-	
-	if id == 0x01B then
-        coroutine.schedule(load_jobs, 0.5)
+
+    if id == 0x01B then
+        -- Zoning finish: check if job changed
+        coroutine.schedule(check_job_change, 0.5)
     end
 end)
 
@@ -237,7 +284,8 @@ end)
 windower.register_event('prerender', function()
     local info = windower.ffxi.get_info()
     if info.loading then return end
-
+	if globalPause then return end
+	
     -- JOB MODULE TICK
     local player = windower.ffxi.get_player()
 	if player then
@@ -253,6 +301,11 @@ windower.register_event('prerender', function()
 		end
 	end
 end)
+
+function pause_all(seconds)
+    globalPause = true
+    coroutine.schedule(function() globalPause = false end, seconds)
+end
 
 --------------------------------------------------------------------------------
 -- Addon Command Handler
@@ -480,6 +533,8 @@ windower.register_event('addon command', function(command, ...)
 		local job = args[1] and args[1]:upper()
 		local subcmd = args[2] and args[2]:lower()
 
+		job = job:upper()
+		
 		if not job or not scripts.jobs[job] then
 			windower.add_to_chat(123, "[AutoBot] No job module loaded for: " .. tostring(job))
 			return
@@ -502,6 +557,7 @@ windower.register_event('addon command', function(command, ...)
 			-- Forward everything after <job> <subcmd>
 			local forwarded_args = { select(3, unpack(args)) }
 			scripts.jobs[job].command(subcmd, forwarded_args)
+			config.save(settings)
 		else
 			windower.add_to_chat(123, "[AutoBot] Job module has no command handler.")
 		end
@@ -647,6 +703,10 @@ windower.register_event('addon command', function(command, ...)
 			local sender = windower.ffxi.get_mob_by_target('me').name
 			if is_whitelisted(sender) then
 				windower.add_to_chat(207, "Using Warp Ring!")
+
+				-- ⭐ Pause all job logic so nothing interrupts the item use
+				scripts.pause(3)
+
 				scripts.general.usewarpring()
 			else
 				windower.add_to_chat(123, "Error: You are not whitelisted to use the Warp Ring command!")
@@ -1097,6 +1157,7 @@ windower.register_event('addon command', function(command, ...)
 
 		-- Forward to job module
 		scripts.jobs[job].command(subcmd, job_args)
+		config.save(settings)
 
 	-----------------------------
 	-- Casting module commands --
