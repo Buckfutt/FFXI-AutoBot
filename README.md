@@ -33,6 +33,7 @@ Please feel free to submit additions, fixes, or changes!
 | `casting` |  Ready | Spell rotation handling |
 | `superwarp` |  Ready | Map and zone navigation integration |
 | `interaction`|  Ready | Direct NPC and trade mechanics |
+| `navigation`|  Ready | Create & Follow NavPaths |
 | `trusts` | ⚠️ *WIP* | Trust management system |
 
 ---
