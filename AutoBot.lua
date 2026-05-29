@@ -1,5 +1,5 @@
 _addon.name = 'AutoBot'
-_addon.version = '1.4'
+_addon.version = '1.4.1'
 _addon.author = 'K0D3R'
 _addon.commands = {'autobot', 'ab', 'bot'}
 
@@ -23,6 +23,7 @@ local settings = config.load({
 		trusts       = true,
         superwarp    = true,
 		interaction  = true,
+		navigation   = true,
 		jobs         = true
     },
     whitelist = L{},  -- default empty whitelist
@@ -47,6 +48,7 @@ local scripts = {
     combat       = require('combat'),
     casting      = require('casting'),
 	interaction  = require('interaction'),
+	navigation   = require('navigation'),
 	trusts    	 = require('trusts'),
 	jobs		 = {}
 }
@@ -76,7 +78,6 @@ end
 -- JOB MODULE SYSTEM
 --------------------------------------------------------------------------------
 local function load_job_module(job)
-    -- Always uppercase job name
     job = job:upper()
 
     local path = windower.addon_path .. 'Jobs/' .. job .. '.lua'
@@ -86,14 +87,24 @@ local function load_job_module(job)
         return
     end
 
-    local module = require('Jobs/' .. job)
+    -- Safe require
+    local ok, module = pcall(require, 'Jobs/' .. job)
+
+    if not ok or type(module) ~= "table" then
+        windower.add_to_chat(123, "[AutoBot] Failed to load job module: " .. job)
+        scripts.jobs[job] = nil
+        return
+    end
+
     scripts.jobs[job] = module
 
     if not settings.jobs[job] then
         settings.jobs[job] = {}
     end
 
-    module.init(settings.jobs[job])
+    if type(module.init) == "function" then
+        module.init(settings.jobs[job])
+    end
 
     windower.add_to_chat(207, "[AutoBot] Loaded job module: " .. job)
 end
@@ -292,14 +303,17 @@ windower.register_event('prerender', function()
 		local mj = player.main_job
 		local sj = player.sub_job
 
-		if mj and scripts.jobs[mj] and scripts.jobs[mj].tick then
+		if mj and type(scripts.jobs[mj]) == "table" and type(scripts.jobs[mj].tick) == "function" then
 			scripts.jobs[mj].tick()
 		end
 
-		if sj and scripts.jobs[sj] and scripts.jobs[sj].tick then
+		if sj and type(scripts.jobs[sj]) == "table" and type(scripts.jobs[sj].tick) == "function" then
 			scripts.jobs[sj].tick()
 		end
 	end
+	
+	-- NAVIGATION MODULE TICK
+	scripts.navigation.tick()
 end)
 
 function pause_all(seconds)
@@ -368,6 +382,15 @@ windower.register_event('addon command', function(command, ...)
         windower.add_to_chat(207, "//autobot target add <monster>   - (Targeting) Add a monster to the target list")
         windower.add_to_chat(207, "//autobot target remove <monster> - (Targeting) Remove a monster from the target list")
         windower.add_to_chat(207, "//autobot target list            - (Targeting) Display current targets")
+		
+		windower.add_to_chat(207, "------ NAVIGATION ------")
+		windower.add_to_chat(207, "//autobot nav record <Name>      - (Nav) Begin recording a new path")
+		windower.add_to_chat(207, "//autobot nav stop               - (Nav) Stop recording or stop navigation")
+		windower.add_to_chat(207, "//autobot nav start <Name>       - (Nav) Start navigating a saved path")
+		windower.add_to_chat(207, "//autobot nav loop               - (Nav) Toggle looping the path (restart at end)")
+		windower.add_to_chat(207, "//autobot nav reverse            - (Nav) Toggle reverse mode (run path backwards once)")
+		windower.add_to_chat(207, "//autobot nav bounce             - (Nav) Toggle bounce mode (run back and forth endlessly)")
+
 		
 		windower.add_to_chat(207, "------ PULLING ------")
 		windower.add_to_chat(207, "//autobot pull start             - (Pulling) Start pulling targets")
@@ -562,6 +585,43 @@ windower.register_event('addon command', function(command, ...)
 			windower.add_to_chat(123, "[AutoBot] Job module has no command handler.")
 		end
 
+	---------------------------------------------------------
+	-- NAVIGATION COMMANDS
+	---------------------------------------------------------
+	elseif command == 'nav' then
+		local sub = args[1] and args[1]:lower()
+
+		if sub == 'record' and args[2] then
+			scripts.navigation.start_record(args[2])
+
+		elseif sub == 'stop' then
+			if scripts.navigation.is_recording() then
+				scripts.navigation.stop_record()
+			else
+				scripts.navigation.stop_playback()
+			end
+
+		elseif sub == 'start' and args[2] then
+			scripts.navigation.start_playback(args[2])
+
+		elseif sub == 'loop' then
+			scripts.navigation.toggle_loop()
+			
+		elseif sub == 'reverse' then
+			scripts.navigation.toggle_reverse()
+		
+		elseif sub == 'bounce' then
+			scripts.navigation.toggle_bounce()
+
+		else
+			windower.add_to_chat(123, "[Nav] Usage:")
+			windower.add_to_chat(207, "//ab nav record <Name>")
+			windower.add_to_chat(207, "//ab nav stop")
+			windower.add_to_chat(207, "//ab nav start <Name>")
+			windower.add_to_chat(207, "//ab nav loop")
+			windower.add_to_chat(207, "//ab nav reverse")
+			windower.add_to_chat(207, "//ab nav bounce")
+		end
 	
 	-------------------
 	-- Mount Control --
