@@ -93,6 +93,7 @@ Please feel free to submit additions, fixes, or changes!
 * `//autobot assist [target]` - Assist a target (defaults to player).
 * `//autobot disengage` - Disengage from combat.
 * `//autobot turn` - Spin character around 180 degrees.
+* `//autobot approach` - (Toggle) Approach target when engaged.
 
 ### 📘 Job Modules
 * `//autobot job <job> start` - Start the specified job module (e.g., SAM, MNK, WHM, RUN).
