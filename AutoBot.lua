@@ -1,5 +1,5 @@
 _addon.name = 'AutoBot'
-_addon.version = '1.4.3'
+_addon.version = '1.4.4'
 _addon.author = 'K0D3R'
 _addon.commands = {'autobot', 'ab', 'bot'}
 
