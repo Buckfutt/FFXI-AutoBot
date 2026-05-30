@@ -62,6 +62,7 @@ scripts.interaction.set_packets(packets)
 -- Pass Settings reference to Modules:
 scripts.targeting.set_settings(settings)
 scripts.pulling.set_settings(settings)
+scripts.combat.set_settings(settings)
 
 -- Pass module references to Trust Manager
 scripts.trusts.set_modules(scripts.pulling, scripts.targeting)
@@ -1194,6 +1195,34 @@ windower.register_event('addon command', function(command, ...)
         else
             windower.add_to_chat(123, "Combat module is disabled!")
         end
+	
+	elseif command == 'approach' then
+		if settings.modules.combat then
+			local sender = windower.ffxi.get_mob_by_target('me').name
+			if is_whitelisted(sender) then
+
+				-- Ensure the key exists
+				if settings.combat.approach == nil then
+					settings.combat.approach = false
+				end
+
+				-- Toggle
+				settings.combat.approach = not settings.combat.approach
+
+				if settings.combat.approach then
+					windower.add_to_chat(207, "[AutoBot:Combat] Approach Mode ENABLED!")
+				else
+					windower.add_to_chat(123, "[AutoBot:Combat] Approach Mode DISABLED.")
+				end
+
+				config.save(settings)
+
+			else
+				windower.add_to_chat(123, "Error: You are not whitelisted to toggle approach mode!")
+			end
+		else
+			windower.add_to_chat(123, "Combat module is disabled!")
+		end
 
 	-----------------------------------------
 	-- Remote Job Module Commands (!job)   --
